@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>JPG Resizer + Crop + Watermark</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#111a2e;
+      --panel2:#0f1730;
+      --text:#e7eefc;
+      --muted:#a9b7dd;
+      --accent:#6aa6ff;
+      --accent2:#7cf7c1;
+      --danger:#ff5a7a;
+      --border: rgba(255,255,255,.10);
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: radial-gradient(1200px 800px at 20% 10%, #13224a 0%, transparent 60%),
+                  radial-gradient(1000px 700px at 90% 20%, #1a3a6e 0%, transparent 55%),
+                  var(--bg);
+      color:var(--text);
+    }
+    header{
+      padding:20px;
+      border-bottom:1px solid var(--border);
+      background: linear-gradient(180deg, rgba(255,255,255,.04), transparent);
+      position: sticky; top:0; z-index:10;
+      backdrop-filter: blur(6px);
+    }
+    header h1{margin:0 0 6px; font-size:18px}
+    header p{margin:0; color:var(--muted); font-size:13px}
+    .wrap{max-width:1200px; margin:0 auto; padding:18px}
+    .grid{
+      display:grid; gap:14px;
+      grid-template-columns: 1fr;
+    }
+    @media(min-width:1000px){
+      .grid{grid-template-columns: 420px 1fr}
+    }
+    .panel{
+      background: rgba(17,26,46,.75);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+      box-shadow: var(--shadow);
+    }
+    .panel h2{
+      font-size:14px;
+      margin:0 0 10px;
+      color:#dbe6ff;
+      letter-spacing:.2px;
+    }
+    .row{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    label{font-size:13px; color:var(--muted)}
+    input[type="file"], input[type="range"]{
+      width:100%;
+      margin-top:6px;
+      background: var(--panel2);
+      border:1px solid var(--border);
+      color:var(--text);
+      border-radius:10px;
+      padding:10px;
+    }
+    .btn{
+      cursor:pointer;
+      border:none;
+      border-radius:12px;
+      padding:10px 12px;
+      font-weight:650;
+      color:#081022;
+      background: linear-gradient(180deg, #9bd2ff 0%, #6aa6ff 100%);
+      box-shadow: 0 10px 25px rgba(106,166,255,.25);
+      transition: transform .05s ease;
+    }
+    .btn:active{transform: translateY(1px)}
+    .btn.secondary{
+      background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.06));
+      color: var(--text);
+      border:1px solid var(--border);
+      box-shadow:none;
+    }
+    .btn.danger{
+      background: linear-gradient(180deg, #ff7a98 0%, #ff5a7a 100%);
+      color:#2a0610;
+    }
+    .small{font-size:12px; color:var(--muted)}
+    .list{
+      display:flex; flex-direction:column; gap:10px;
+      max-height:260px; overflow:auto; padding-right:6px;
+    }
+    .thumbItem{
+      display:flex; gap:10px; align-items:center;
+      padding:10px;
+      background: rgba(15,23,48,.6);
+      border:1px solid var(--border);
+      border-radius:12px;
+    }
+    .thumbItem img{
+      width:54px; height:54px; object-fit:cover;
+      border-radius:10px; border:1px solid rgba(255,255,255,.15);
+      background:#0a0f1f;
+    }
+    .thumbMeta{min-width:0}
+    .thumbMeta .name{
+      font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .thumbMeta .sub{
+      font-size:12px; color:var(--muted);
+    }
+
+    .stageGrid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:12px;
+    }
+    @media(min-width:950px){
+      .stageGrid{grid-template-columns: 1fr 1fr}
+    }
+    .editorPanel{
+      padding:12px;
+      background: rgba(15,23,48,.55);
+      border:1px solid var(--border);
+      border-radius:14px;
+    }
+    .editorHead{
+      display:flex; justify-content:space-between; gap:10px; align-items:flex-start;
+      margin-bottom:10px;
+    }
+    .badge{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color:#d7e5ff;
+      white-space:nowrap;
+    }
+    .canvasWrap{
+      display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;
+    }
+    /* IMPORTANT: canvas will have dynamic width/height BUT we keep it responsive */
+    canvas{
+      width: 360px;
+      max-width: 100%;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.18);
+      background:#070b16;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.05);
+      touch-action: none;
+      display:block;
+    }
+    .controls{
+      flex:1;
+      min-width:220px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .controls .sliderRow{
+      background: rgba(255,255,255,.04);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px;
+    }
+    .controls input[type="range"]{margin-top:8px}
+
+    .cornerRow{
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap:8px;
+    }
+    .corner{
+      cursor:pointer;
+      padding:10px;
+      border-radius:12px;
+      background: rgba(255,255,255,.04);
+      border:1px solid var(--border);
+      color:var(--text);
+      font-weight:700;
+      font-size:12px;
+      text-align:center;
+      user-select:none;
+    }
+    .corner.active{
+      background: rgba(124,247,193,.14);
+      border-color: rgba(124,247,193,.45);
+      color:#b7ffe2;
+    }
+
+    .outputs{
+      margin-top:14px;
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:10px;
+    }
+    @media(min-width:900px){
+      .outputs{grid-template-columns: repeat(3, 1fr)}
+    }
+    .outputCard{
+      background: rgba(17,26,46,.65);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px;
+    }
+    .outputCard .title{
+      display:flex; justify-content:space-between; gap:10px; align-items:center;
+      margin-bottom:8px;
+    }
+    .outputCard img{
+      width:100%;
+      max-height:220px;
+      object-fit:contain;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background:#070b16;
+    }
+    .hint{
+      margin-top:10px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+    .kbd{
+      padding:2px 6px;
+      border-radius:8px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      font-weight:700;
+      font-size:11px;
+    }
+    .busy{
+      opacity: .8;
+      filter: saturate(.9);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📐 JPG Resizer + Crop + Watermark</h1>
+    <p>Upload → previews auto-generate → editor matches exact aspect ratio → drag/zoom crop within frame → optional overlay → download.</p>
+  </header>
+
+  <div class="wrap">
+    <div class="grid">
+      <section class="panel">
+        <h2>📤 1) Upload</h2>
+        <input id="imageInput" type="file" accept="image/jpeg" multiple />
+        <div class="hint">JPG/JPEG only. Previews generate automatically after upload.</div>
+
+        <div style="height:12px"></div>
+        <h2>🧩 2) Watermark / overlay</h2>
+
+        <label>Overlay image (optional)</label>
+        <input id="overlayInput" type="file" accept="image/*" />
+
+        <div class="row" style="margin-top:10px">
+          <div style="flex:1">
+            <label>Corner</label>
+            <div class="cornerRow" id="cornerRow">
+              <div class="corner active" data-corner="tl">Top-Left</div>
+              <div class="corner" data-corner="tr">Top-Right</div>
+              <div class="corner" data-corner="bl">Bottom-Left</div>
+              <div class="corner" data-corner="br">Bottom-Right</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <div style="flex:1">
+            <label>Overlay opacity</label>
+            <input id="opacityRange" type="range" min="0" max="1" step="0.01" value="0.6" />
+          </div>
+          <div style="width:110px">
+            <div class="small" id="opacityLabel">60%</div>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+        <button class="btn secondary" id="applyBtn">✨ Apply watermark to previews</button>
+        <div class="hint">
+          Overlay edits apply to generated JPG previews via <span class="kbd">Apply watermark</span>.
+        </div>
+
+        <div style="height:14px"></div>
+        <h2>🧾 3) Download</h2>
+        <button class="btn" id="downloadBtn" disabled>⬇️ Download selected</button>
+        <div style="height:10px"></div>
+        <button class="btn danger" id="clearBtn">🧹 Clear</button>
+      </section>
+
+      <section class="panel">
+        <h2>🖼️ 4) Crop & Center Editors</h2>
+        <div class="list" id="imageList"></div>
+
+        <div style="height:14px"></div>
+        <div class="stageGrid" id="editorsArea" style="display:none;"></div>
+
+        <div class="outputs" id="outputsArea"></div>
+      </section>
+    </div>
+  </div>
+
+<script>
+  const sizes = [
+    { key: '1080x1350', w:1080, h:1350 }, // 0.8
+    { key: '1080x1920', w:1080, h:1920 }, // 0.5625
+    { key: '1920x1080', w:1920, h:1080 }, // 1.777...
+  ];
+
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+
+  function drawContainCoverToCanvas(ctx, img, outW, outH, zoom, panX, panY){
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const scale = Math.max(outW / iw, outH / ih) * zoom;
+    const dw = iw * scale;
+    const dh = ih * scale;
+
+    const cx = outW/2 + panX;
+    const cy = outH/2 + panY;
+
+    const x = cx - dw/2;
+    const y = cy - dh/2;
+
+    ctx.clearRect(0,0,outW,outH);
+    ctx.drawImage(img, x, y, dw, dh);
+  }
+
+  function drawFrameGrid(ctx, w, h){
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    ctx.fillRect(0,0,w,h);
+
+    // thirds grid
+    ctx.strokeStyle = 'rgba(124,247,193,0.35)';
+    ctx.lineWidth = 1;
+    const x1=w/3, x2=2*w/3, y1=h/3, y2=2*h/3;
+    for (const x of [x1,x2]){
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+    }
+    for (const y of [y1,y2]){
+      ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+    }
+
+    // center crosshair
+    ctx.strokeStyle = 'rgba(106,166,255,0.85)';
+    ctx.lineWidth = 2;
+    const cx=w/2, cy=h/2;
+    ctx.beginPath();
+    ctx.moveTo(cx-14, cy); ctx.lineTo(cx+14, cy);
+    ctx.moveTo(cx, cy-14); ctx.lineTo(cx, cy+14);
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(106,166,255,1)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3.2, 0, Math.PI*2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawOverlayOnCanvas(ctx, overlayImg, corner, opacity, outW, outH){
+    if (!overlayImg) return;
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+
+    const imgW = overlayImg.naturalWidth;
+    const imgH = overlayImg.naturalHeight;
+
+    const targetShort = Math.min(outW, outH) * 0.22;
+    const s = targetShort / Math.min(imgW, imgH);
+    const drawW = imgW * s;
+    const drawH = imgH * s;
+
+    let x=0, y=0;
+    if (corner === 'tl') { x = 18; y = 18; }
+    if (corner === 'tr') { x = outW - drawW - 18; y = 18; }
+    if (corner === 'bl') { x = 18; y = outH - drawH - 18; }
+    if (corner === 'br') { x = outW - drawW - 18; y = outH - drawH - 18; }
+
+    ctx.drawImage(overlayImg, x, y, drawW, drawH);
+    ctx.restore();
+  }
+
+  function getJpegBlob(canvas, quality=0.92){
+    return new Promise(resolve => canvas.toBlob(blob => resolve(blob), 'image/jpeg', quality));
+  }
+
+  // Match editor canvas aspect to the target output aspect ratio
+  // Choose a base "width" in internal pixels; compute height from aspect; cap height for usability.
+  function editorCanvasDimsForSize(sz){
+    const baseW = 540; // internal px
+    const aspect = sz.w / sz.h; // width/height
+    let w = baseW;
+    let h = Math.round(w / aspect);
+
+    // Cap height so ultra-tall doesn't become unusable; rescale both axes
+    const maxH = 560; // internal px
+    if (h > maxH){
+      const scale = maxH / h;
+      h = Math.round(h * scale);
+      w = Math.round(w * scale);
+    }
+
+    // Ensure sensible minimum sizes
+    w = Math.max(360, w);
+    // Recompute height if width changed due to min
+    h = Math.round(w / aspect);
+    if (h > maxH){
+      const scale = maxH / h;
+      h = Math.round(h * scale);
+      w = Math.round(w * scale);
+    }
+
+    return { w, h };
+  }
+
+  // ---------- State ----------
+  let state = {
+    images: [],
+    overlay: null,
+    overlayCorner: 'tl',
+    overlayOpacity: 0.6,
+    settings: [],
+    results: [],
+    activeImageIndex: 0
+  };
+
+  // ---------- Elements ----------
+  const imageInput = document.getElementById('imageInput');
+  const overlayInput = document.getElementById('overlayInput');
+  const overlayOpacityRange = document.getElementById('opacityRange');
+  const opacityLabel = document.getElementById('opacityLabel');
+
+  const imageList = document.getElementById('imageList');
+  const editorsArea = document.getElementById('editorsArea');
+  const outputsArea = document.getElementById('outputsArea');
+
+  const applyBtn = document.getElementById('applyBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const cornerRow = document.getElementById('cornerRow');
+
+  let canvases = {};
+  let generating = false;
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, m => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[m]));
+  }
+
+  function ensureSettingsForAll(){
+    state.settings = state.images.map(() => {
+      const s = {};
+      sizes.forEach(sz => { s[sz.key] = { zoom: 1, panX: 0, panY: 0 }; });
+      return s;
+    });
+    state.results = state.images.map(() => ({}));
+  }
+
+  function renderImageList(){
+    imageList.innerHTML = '';
+    state.images.forEach((it, idx) => {
+      const row = document.createElement('div');
+      row.className = 'thumbItem';
+      row.style.cursor = 'pointer';
+      row.style.borderColor = (idx === state.activeImageIndex) ? 'rgba(106,166,255,.7)' : 'rgba(255,255,255,.10)';
+      row.innerHTML = `
+        <img alt="" src="${it.thumbDataUrl}">
+        <div class="thumbMeta">
+          <div class="name">${escapeHtml(it.name)}</div>
+          <div class="sub">${it.imgEl.naturalWidth}×${it.imgEl.naturalHeight}</div>
+        </div>
+      `;
+      row.onclick = () => {
+        state.activeImageIndex = idx;
+        renderImageList();
+        renderEditorsForActiveImage();
+        renderOutputsUIForImage(state.activeImageIndex);
+      };
+      imageList.appendChild(row);
+    });
+  }
+
+  function drawEditorPreview(canvas, ctx, imageIndex, sz){
+    const img = state.images[imageIndex]?.imgEl;
+    if (!img) return;
+
+    const viewW = canvas.width;
+    const viewH = canvas.height;
+
+    const st = state.settings[imageIndex][sz.key];
+
+    // map output pan into this canvas pixel grid
+    const panX_view = st.panX * (viewW / sz.w);
+    const panY_view = st.panY * (viewH / sz.h);
+
+    drawContainCoverToCanvas(ctx, img, viewW, viewH, st.zoom, panX_view, panY_view);
+    drawFrameGrid(ctx, viewW, viewH);
+
+    if (state.overlay){
+      drawOverlayOnCanvas(ctx, state.overlay.imgEl, state.overlayCorner, state.overlayOpacity, viewW, viewH);
+    }
+  }
+
+  function renderEditorsForActiveImage(){
+    const active = state.activeImageIndex;
+    if (!state.images[active]) return;
+
+    editorsArea.innerHTML = '';
+    editorsArea.style.display = 'grid';
+    canvases = {};
+
+    sizes.forEach((sz) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'editorPanel';
+
+      const dims = editorCanvasDimsForSize(sz);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = dims.w;
+      canvas.height = dims.h;
+
+      const ctx = canvas.getContext('2d');
+
+      const label = document.createElement('div');
+      label.className = 'editorHead';
+      label.innerHTML = `
+        <div class="badge">${sz.w}×${sz.h}</div>
+        <div class="small">Exact aspect • Grid + center marker</div>
+      `;
+
+      const canvasWrap = document.createElement('div');
+      canvasWrap.className = 'canvasWrap';
+
+      const controls = document.createElement('div');
+      controls.className = 'controls';
+
+      const st = state.settings[active][sz.key];
+
+      const sliderRow = document.createElement('div');
+      sliderRow.className = 'sliderRow';
+      sliderRow.innerHTML = `
+        <div class="row" style="justify-content:space-between">
+          <label>Zoom</label>
+          <div class="small"><span id="zoomVal-${sz.key}"></span>x</div>
+        </div>
+        <input id="zoom-${sz.key}" type="range" min="1" max="3" step="0.01" value="${st.zoom}">
+        <div class="small" style="margin-top:6px">Higher zoom = crop tighter.</div>
+      `;
+
+      const resetRow = document.createElement('div');
+      resetRow.className = 'row';
+      resetRow.innerHTML = `
+        <button class="btn secondary" id="reset-${sz.key}" type="button" style="width:100%">Reset center</button>
+      `;
+
+      controls.appendChild(sliderRow);
+      controls.appendChild(resetRow);
+
+      canvasWrap.appendChild(canvas);
+      canvasWrap.appendChild(controls);
+
+      wrap.appendChild(label);
+      wrap.appendChild(canvasWrap);
+
+      editorsArea.appendChild(wrap);
+
+      const zoomInput = sliderRow.querySelector(`#zoom-${sz.key}`);
+      const zoomVal = sliderRow.querySelector(`#zoomVal-${sz.key}`);
+      zoomVal.textContent = st.zoom.toFixed(2);
+
+      // drag
+      const drag = { down:false, startX:0, startY:0, panX: st.panX, panY: st.panY };
+      canvas.addEventListener('pointerdown', (ev) => {
+        canvas.setPointerCapture(ev.pointerId);
+        drag.down = true;
+        drag.startX = ev.clientX;
+        drag.startY = ev.clientY;
+        drag.panX = state.settings[active][sz.key].panX;
+        drag.panY = state.settings[active][sz.key].panY;
+      });
+      canvas.addEventListener('pointerup', () => drag.down = false);
+      canvas.addEventListener('pointercancel', () => drag.down = false);
+
+      canvas.addEventListener('pointermove', (ev) => {
+        if (!drag.down) return;
+        const dx = ev.clientX - drag.startX;
+        const dy = ev.clientY - drag.startY;
+
+        const viewW = canvas.width;
+        const viewH = canvas.height;
+
+        const panScaleX = sz.w / viewW;
+        const panScaleY = sz.h / viewH;
+
+        const newPanX = drag.panX + dx * panScaleX;
+        const newPanY = drag.panY + dy * panScaleY;
+
+        state.settings[active][sz.key].panX = clamp(newPanX, -sz.w, sz.w);
+        state.settings[active][sz.key].panY = clamp(newPanY, -sz.h, sz.h);
+
+        drawEditorPreview(canvas, ctx, active, sz);
+      });
+
+      zoomInput.addEventListener('input', () => {
+        const z = parseFloat(zoomInput.value);
+        state.settings[active][sz.key].zoom = z;
+        zoomVal.textContent = z.toFixed(2);
+        drawEditorPreview(canvas, ctx, active, sz);
+      });
+
+      resetRow.querySelector(`#reset-${sz.key}`).onclick = () => {
+        state.settings[active][sz.key].zoom = 1;
+        state.settings[active][sz.key].panX = 0;
+        state.settings[active][sz.key].panY = 0;
+        zoomInput.value = 1;
+        zoomVal.textContent = '1.00';
+        drawEditorPreview(canvas, ctx, active, sz);
+      };
+
+      canvases[sz.key] = { canvas, ctx };
+      drawEditorPreview(canvas, ctx, active, sz);
+    });
+  }
+
+  function renderOutputsUIForImage(imageIndex){
+    outputsArea.innerHTML = '';
+    sizes.forEach((sz) => {
+      const card = document.createElement('div');
+      card.className = 'outputCard';
+      card.innerHTML = `
+        <div class="title">
+          <div style="font-weight:800">${sz.key}</div>
+          <label style="margin:0; display:flex; align-items:center; gap:8px; color:var(--muted); font-size:12px">
+            <input type="checkbox" data-size="${sz.key}" data-image="${imageIndex}" class="dlCheck" checked />
+            Download
+          </label>
+        </div>
+        <img alt="${sz.key} preview" src="${state.results[imageIndex]?.[sz.key]?.dataUrl || ''}">
+      `;
+      outputsArea.appendChild(card);
+    });
+  }
+
+  async function generateAllPreviews(){
+    if (!state.images.length) return;
+    generating = true;
+    downloadBtn.disabled = true;
+
+    const active = state.activeImageIndex;
+
+    let done = 0;
+    for (let i=0; i<state.images.length; i++){
+      const img = state.images[i].imgEl;
+      for (const sz of sizes){
+        const canvas = document.createElement('canvas');
+        canvas.width = sz.w;
+        canvas.height = sz.h;
+        const ctx = canvas.getContext('2d');
+
+        const st = state.settings[i][sz.key];
+        drawContainCoverToCanvas(ctx, img, sz.w, sz.h, st.zoom, st.panX, st.panY);
+
+        if (state.overlay){
+          drawOverlayOnCanvas(ctx, state.overlay.imgEl, state.overlayCorner, state.overlayOpacity, sz.w, sz.h);
+        }
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+        const blob = await getJpegBlob(canvas, 0.92);
+        state.results[i][sz.key] = { canvas, blob, dataUrl };
+
+        done++;
+        if (done % 2 === 0) await new Promise(r => setTimeout(r, 0));
+      }
+    }
+
+    renderOutputsUIForImage(active);
+    downloadBtn.disabled = false;
+    generating = false;
+  }
+
+  async function applyWatermarkToPreviews(){
+    if (!state.images.length) return;
+    const i = state.activeImageIndex;
+
+    applyBtn.disabled = true;
+    applyBtn.textContent = '⏳ Applying...';
+
+    for (const sz of sizes){
+      const canvas = document.createElement('canvas');
+      canvas.width = sz.w;
+      canvas.height = sz.h;
+      const ctx = canvas.getContext('2d');
+
+      const img = state.images[i].imgEl;
+      const st = state.settings[i][sz.key];
+
+      drawContainCoverToCanvas(ctx, img, sz.w, sz.h, st.zoom, st.panX, st.panY);
+
+      if (state.overlay){
+        drawOverlayOnCanvas(ctx, state.overlay.imgEl, state.overlayCorner, state.overlayOpacity, sz.w, sz.h);
+      }
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      const blob = await getJpegBlob(canvas, 0.92);
+      state.results[i][sz.key] = { canvas, blob, dataUrl };
+    }
+
+    renderOutputsUIForImage(i);
+
+    applyBtn.disabled = false;
+    applyBtn.textContent = '✨ Apply watermark to previews';
+  }
+
+  // ---------- Events ----------
+  cornerRow.addEventListener('click', (e) => {
+    const el = e.target.closest('.corner');
+    if (!el) return;
+
+    [...cornerRow.querySelectorAll('.corner')].forEach(x => x.classList.remove('active'));
+    el.classList.add('active');
+
+    state.overlayCorner = el.dataset.corner;
+    for (const sz of sizes){
+      const c = canvases[sz.key];
+      if (c) drawEditorPreview(c.canvas, c.ctx, state.activeImageIndex, sz);
+    }
+  });
+
+  overlayOpacityRange.addEventListener('input', () => {
+    state.overlayOpacity = parseFloat(overlayOpacityRange.value);
+    opacityLabel.textContent = Math.round(state.overlayOpacity * 100) + '%';
+
+    for (const sz of sizes){
+      const c = canvases[sz.key];
+      if (c) drawEditorPreview(c.canvas, c.ctx, state.activeImageIndex, sz);
+    }
+  });
+
+  overlayInput.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      state.overlay = null;
+      for (const sz of sizes){
+        const c = canvases[sz.key];
+        if (c) drawEditorPreview(c.canvas, c.ctx, state.activeImageIndex, sz);
+      }
+      return;
+    }
+
+    const imgEl = new Image();
+    imgEl.decoding = "async";
+    imgEl.src = URL.createObjectURL(file);
+    await new Promise((res, rej) => { imgEl.onload = res; imgEl.onerror = rej; });
+
+    state.overlay = { imgEl };
+    for (const sz of sizes){
+      const c = canvases[sz.key];
+      if (c) drawEditorPreview(c.canvas, c.ctx, state.activeImageIndex, sz);
+    }
+  });
+
+  imageInput.addEventListener('change', async (e) => {
+    const files = [...e.target.files];
+    if (!files.length) return;
+
+    state.images = [];
+    state.results = [];
+    state.settings = [];
+    state.activeImageIndex = 0;
+
+    outputsArea.innerHTML = '';
+    editorsArea.innerHTML = '';
+    editorsArea.style.display = 'none';
+    canvases = {};
+
+    for (const file of files){
+      const isJpg =
+        file.type.includes('jpeg') || file.type.includes('jpg') ||
+        file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg');
+      if (!isJpg) continue;
+
+      const imgEl = new Image();
+      imgEl.decoding = "async";
+      imgEl.src = URL.createObjectURL(file);
+      await new Promise((res, rej) => { imgEl.onload = res; imgEl.onerror = rej; });
+
+      const thumbCanvas = document.createElement('canvas');
+      const max = 80;
+      const scale = Math.min(max/imgEl.naturalWidth, max/imgEl.naturalHeight, 1);
+      thumbCanvas.width = Math.round(imgEl.naturalWidth * scale);
+      thumbCanvas.height = Math.round(imgEl.naturalHeight * scale);
+
+      const tctx = thumbCanvas.getContext('2d');
+      tctx.fillStyle = '#000';
+      tctx.drawImage(imgEl, 0,0, thumbCanvas.width, thumbCanvas.height);
+
+      state.images.push({
+        file,
+        name: file.name.replace(/\.[^.]+$/,''),
+        imgEl,
+        thumbDataUrl: thumbCanvas.toDataURL('image/jpeg', 0.85)
+      });
+    }
+
+    if (!state.images.length){
+      alert('No JPG files selected.');
+      return;
+    }
+
+    ensureSettingsForAll();
+    renderImageList();
+    renderEditorsForActiveImage();
+
+    await generateAllPreviews();
+  });
+
+  applyBtn.addEventListener('click', applyWatermarkToPreviews);
+
+  downloadBtn.addEventListener('click', async () => {
+    const checks = [...document.querySelectorAll('.dlCheck')].filter(x => x.checked);
+    if (!checks.length) return;
+
+    downloadBtn.disabled = true;
+    downloadBtn.textContent = '⬇️ Downloading...';
+
+    for (const chk of checks){
+      const i = parseInt(chk.dataset.image, 10);
+      const szKey = chk.dataset.size;
+      const res = state.results[i]?.[szKey];
+      if (!res?.blob) continue;
+
+      const a = document.createElement('a');
+      const baseName = state.images[i].name || 'image';
+      a.download = `${baseName}_${szKey}.jpg`;
+      a.href = URL.createObjectURL(res.blob);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      await new Promise(r => setTimeout(r, 80));
+    }
+
+    downloadBtn.disabled = false;
+    downloadBtn.textContent = '⬇️ Download selected';
+  });
+
+  clearBtn.addEventListener('click', () => {
+    state = {
+      images: [],
+      overlay: null,
+      overlayCorner: 'tl',
+      overlayOpacity: 0.6,
+      settings: [],
+      results: [],
+      activeImageIndex: 0
+    };
+    imageInput.value = '';
+    overlayInput.value = '';
+    opacityLabel.textContent = '60%';
+    overlayOpacityRange.value = 0.6;
+
+    imageList.innerHTML = '';
+    editorsArea.innerHTML = '';
+    editorsArea.style.display = 'none';
+    outputsArea.innerHTML = '';
+    canvases = {};
+
+    downloadBtn.disabled = true;
+    downloadBtn.textContent = '⬇️ Download selected';
+  });
+
+  opacityLabel.textContent = '60%';
+</script>
+</body>
+</html>
